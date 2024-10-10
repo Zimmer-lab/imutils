@@ -6,7 +6,7 @@ import glob
 # unet model is here (too)
 import skimage.io as io
 import skimage.transform as trans
-from imutils.scopereader import MicroscopeDataReader
+from imutils.scopedatamanager import microscope_data_reader
 from skimage import img_as_ubyte
 import dask.array as da
 import pandas as pd
