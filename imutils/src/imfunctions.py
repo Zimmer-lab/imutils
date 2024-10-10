@@ -7,7 +7,7 @@ import pandas as pd
 import tifffile as tiff
 from natsort import natsorted
 
-from imutils.scopedatamanager import microscope_data_reader
+from imutils import MicroscopeDataReader
 import dask.array as da
 from skimage.morphology import binary_erosion
 
