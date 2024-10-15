@@ -75,6 +75,17 @@ def correct_head_tail_swaps(df, output_file_path, head_name, tail_name, window_s
         df.loc[swap, (head_name, 'x')], df.loc[swap, (tail_name, 'x')] = df.loc[swap, (tail_name, 'x')], df.loc[swap, (head_name, 'x')]
         df.loc[swap, (head_name, 'y')], df.loc[swap, (tail_name, 'y')] = df.loc[swap, (tail_name, 'y')], df.loc[swap, (head_name, 'y')]
 
+    # Extract the model name from the input file path
+    file_name = os.path.basename(input_file_path)
+    model_name = file_name.split('_filtered.csv')[0].split('track')[1]
+
+    # Add the scorer row
+    scorer_row = pd.DataFrame([[model_name] * len(df.columns)],
+                              columns=df.columns)
+    df = pd.concat([scorer_row, df]).reset_index(drop=True)
+
+    # Rename the first row to 'scorer'
+    df.rename(index={0: 'scorer'}, inplace=True)
 
     df.to_csv(output_file_path, index=False)
     print(f"Corrected CSV data saved to {output_file_path}")
