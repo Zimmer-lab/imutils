@@ -61,24 +61,22 @@ def correct_head_tail_swaps(df, input_file_path, output_file_path, head_name, ta
 
     print(f"Number of swaps detected and corrected: {len(swaps)}")
 
-
 def main(arg_list=None):
     parser = argparse.ArgumentParser(description="Correct head-tail swaps in DeepLabCut output")
     parser.add_argument("input_file_path", help="Path to the input H5 file")
-    parser.add_argument("output_file_path", help="Path to the output H5 file")
+    parser.add_argument("--output_file_path", required=True, help="Path to the output H5 file")  # Set this to required
     parser.add_argument("--head", default="head", help="Name of the head bodypart (default: head)")
     parser.add_argument("--tail", default="tail", help="Name of the tail bodypart (default: tail)")
     parser.add_argument("--window", type=int, default=20, help="Window size for averaging (default: 20)")
-    parser.add_argument("--threshold", type=float, default=10,
-                        help="Distance threshold for swap detection (default: 10)")
+    parser.add_argument("--threshold", type=float, default=10, help="Distance threshold for swap detection (default: 10)")
 
     args = parser.parse_args(arg_list)
 
+    # Perform the head-tail correction operation
     df = pd.read_hdf(args.input_file_path)
 
-    correct_head_tail_swaps(df, args.input_file_path, args.output_file_path, args.head, args.tail, args.window,
-                            args.threshold)
-
+    # Ensure the output is passed correctly to the function
+    correct_head_tail_swaps(df, args.input_file_path, args.output_file_path, args.head, args.tail, args.window, args.threshold)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
