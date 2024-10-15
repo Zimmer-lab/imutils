@@ -76,18 +76,19 @@ def correct_head_tail_swaps(df, input_file_path, output_file_path, head_name, ta
         df.loc[swap, (head_name, 'x')], df.loc[swap, (tail_name, 'x')] = df.loc[swap, (tail_name, 'x')], df.loc[swap, (head_name, 'x')]
         df.loc[swap, (head_name, 'y')], df.loc[swap, (tail_name, 'y')] = df.loc[swap, (tail_name, 'y')], df.loc[swap, (head_name, 'y')]
 
-    # Prepare the final CSV structure
-    output_df = pd.DataFrame(columns=df.columns)
+    # Extract the model name from the input file path
+    file_name = os.path.basename(input_file_path)
+    model_name = file_name.split('_filtered.csv')[0].split('track')[1]
 
-    # Add 'scorer' and 'coords' rows
-    scorer_row = ['scorer'] + [''] * (len(df.columns) - 1)
-    coords_row = ['coords'] + list(df.columns.get_level_values(1))
+    # Add the scorer row
+    scorer_row = pd.DataFrame([[model_name] * len(df.columns)],
+                              columns=df.columns)
+    df = pd.concat([scorer_row, df]).reset_index(drop=True)
 
-    # Concatenate the data for CSV
-    output_df = pd.concat([pd.DataFrame([scorer_row]), pd.DataFrame([coords_row]), df.reset_index(drop=True)], ignore_index=True)
+    # Rename the first row to 'scorer'
+    df.rename(index={0: 'scorer'}, inplace=True)
 
-    # Save corrected data as CSV
-    output_df.to_csv(output_file_path, index=False)
+    df.to_csv(output_file_path, index=False)
     print(f"Corrected CSV data saved to {output_file_path}")
 
     # Save corrected data as H5
