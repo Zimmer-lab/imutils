@@ -38,7 +38,7 @@ def read_DLC_csv(csv_file_path):
 
     return df
 
-def correct_head_tail_swaps(df, output_file_path, head_name, tail_name, window_size, threshold_distance):
+def correct_head_tail_swaps(df, input_file_path, output_file_path, head_name, tail_name, window_size, threshold_distance):
     
     # Extract x and y coordinates for head and tail
     head_x = df[head_name]['x'].values
@@ -100,7 +100,7 @@ def correct_head_tail_swaps(df, output_file_path, head_name, tail_name, window_s
 
 def main(arg_list=None):
     parser = argparse.ArgumentParser(description="Correct head-tail swaps in DeepLabCut CSV output")
-    parser.add_argument("csv_path", help="Path to the input CSV file")
+    parser.add_argument("input_file_path", help="Path to the input CSV file")
     parser.add_argument("--output_file_path", help="Path to the input CSV file")
     parser.add_argument("--head", default="head", help="Name of the head bodypart in the CSV (default: head)")
     parser.add_argument("--tail", default="tail", help="Name of the tail bodypart in the CSV (default: tail)")
@@ -111,7 +111,7 @@ def main(arg_list=None):
 
     DLC_data = read_DLC_csv(args.csv_path)
 
-    correct_head_tail_swaps(DLC_data, args.output_file_path, args.head, args.tail, args.window, args.threshold)
+    correct_head_tail_swaps(DLC_data, args.input_file_path, args.output_file_path, args.head, args.tail, args.window, args.threshold)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
