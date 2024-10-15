@@ -4,7 +4,6 @@ import pandas as pd
 import numpy as np
 import os
 
-
 def correct_head_tail_swaps(df, input_file_path, output_file_path, head_name, tail_name, window_size, threshold_distance):
     scorer = df.columns.get_level_values(0)[0]
 
@@ -17,6 +16,7 @@ def correct_head_tail_swaps(df, input_file_path, output_file_path, head_name, ta
     total_frames = len(df)
     swaps = []
 
+    print("Analyzing frames for head-tail swaps...")
     for frame in range(total_frames):
         # Determine the window range
         start = max(0, frame - window_size)
@@ -38,18 +38,23 @@ def correct_head_tail_swaps(df, input_file_path, output_file_path, head_name, ta
         if (head_to_avg_tail < threshold_distance and tail_to_avg_head < threshold_distance and
                 head_to_avg_tail < head_to_avg_head and tail_to_avg_head < tail_to_avg_tail):
             swaps.append(frame)
+            print(f"Swap detected at frame {frame}:")
+            print(f"  Before swap - Head: ({head_x[frame]:.2f}, {head_y[frame]:.2f}), Tail: ({tail_x[frame]:.2f}, {tail_y[frame]:.2f})")
 
-    # Correct swaps
-    for swap in swaps:
-        df.loc[swap, (scorer, head_name, 'x')], df.loc[swap, (scorer, tail_name, 'x')] = df.loc[
-            swap, (scorer, tail_name, 'x')], df.loc[swap, (scorer, head_name, 'x')]
-        df.loc[swap, (scorer, head_name, 'y')], df.loc[swap, (scorer, tail_name, 'y')] = df.loc[
-            swap, (scorer, tail_name, 'y')], df.loc[swap, (scorer, head_name, 'y')]
+            # Correct swap
+            df.loc[frame, (scorer, head_name, 'x')], df.loc[frame, (scorer, tail_name, 'x')] = df.loc[
+                frame, (scorer, tail_name, 'x')], df.loc[frame, (scorer, head_name, 'x')]
+            df.loc[frame, (scorer, head_name, 'y')], df.loc[frame, (scorer, tail_name, 'y')] = df.loc[
+                frame, (scorer, tail_name, 'y')], df.loc[frame, (scorer, head_name, 'y')]
+
+            print(f"  After swap  - Head: ({df.loc[frame, (scorer, head_name, 'x')]:.2f}, {df.loc[frame, (scorer, head_name, 'y')]:.2f}), Tail: ({df.loc[frame, (scorer, tail_name, 'x')]:.2f}, {df.loc[frame, (scorer, tail_name, 'y')]:.2f})")
+            print(f"  Distances - Head to Avg Head: {head_to_avg_head:.2f}, Tail to Avg Tail: {tail_to_avg_tail:.2f}")
+            print(f"              Head to Avg Tail: {head_to_avg_tail:.2f}, Tail to Avg Head: {tail_to_avg_head:.2f}")
+            print()
 
     # Extract the model name from the input file path
     file_name = os.path.basename(input_file_path)
     model_name = file_name.split('_filtered.h5')[0].split('track')[1]
-
 
     df.to_hdf(output_file_path, key='df', mode='w')
     print(f"Corrected H5 data saved to {output_file_path}")
@@ -59,12 +64,13 @@ def correct_head_tail_swaps(df, input_file_path, output_file_path, head_name, ta
     df.to_csv(output_csv_path)
     print(f"Corrected CSV data saved to {output_csv_path}")
 
-    print(f"Number of swaps detected and corrected: {len(swaps)}")
+    print(f"\nTotal number of swaps detected and corrected: {len(swaps)}")
+    print("Frames where swaps occurred:", swaps)
 
 def main(arg_list=None):
     parser = argparse.ArgumentParser(description="Correct head-tail swaps in DeepLabCut output")
     parser.add_argument("input_file_path", help="Path to the input H5 file")
-    parser.add_argument("--output_file_path", required=True, help="Path to the output H5 file")  # Set this to required
+    parser.add_argument("--output_file_path", required=True, help="Path to the output H5 file")
     parser.add_argument("--head", default="head", help="Name of the head bodypart (default: head)")
     parser.add_argument("--tail", default="tail", help="Name of the tail bodypart (default: tail)")
     parser.add_argument("--window", type=int, default=20, help="Window size for averaging (default: 20)")
