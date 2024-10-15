@@ -109,7 +109,7 @@ def main(arg_list=None):
     
     args = parser.parse_args(arg_list)
 
-    DLC_data = read_DLC_csv(args.csv_path)
+    DLC_data = read_DLC_csv(args.input_file_path)
 
     correct_head_tail_swaps(DLC_data, args.input_file_path, args.output_file_path, args.head, args.tail, args.window, args.threshold)
 
