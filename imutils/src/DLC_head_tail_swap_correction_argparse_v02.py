@@ -1,259 +1,163 @@
+'''
+This script corrects head-tail swaps and jumps in DeepLabCut output data.
+It uses dynamic window-based correction and a Hampel filter to identify and fix
+potential errors in animal tracking data. The script processes H5 files,
+applies corrections, and saves the results in both H5 and CSV formats.
+
+Key features:
+1. Dynamic stable window detection for coordinate correction
+2. Head-tail swap correction based on dynamic thresholds
+3. Hampel filter for jump correction
+4. Command-line interface for easy use
+5. Supports custom body part names and window sizes
+'''
+
 import argparse
 import sys
 import pandas as pd
 import numpy as np
 import os
 
-def correct_head_tail_swaps(df, head_name, tail_name):
+
+def find_dynamic_stable_window(df, scorer, body_part, coord, current_frame, window_size, threshold):
     """
-    Correct head-tail swaps in tracking data by comparing positions frame by frame
-    with dynamic thresholding based on the previous head-tail distance.
+    Finds a dynamic stable window for a specific coordinate (x or y) of a body part,
+    centered around the current frame.
 
     Parameters:
     - df: pandas DataFrame containing the tracking data.
-    - head_name: string, name of the head body part in the DataFrame.
-    - tail_name: string, name of the tail body part in the DataFrame.
+    - scorer: string, name of the scorer in the DataFrame.
+    - body_part: string, name of the body part (e.g., head).
+    - coord: string, coordinate to check ('x' or 'y').
+    - current_frame: integer, the current frame around which the window is centered.
+    - window_size: integer, size of the window to consider.
+    - threshold: float, maximum allowed standard deviation to consider the window stable.
 
     Returns:
-    - df_corrected: pandas DataFrame with corrected head and tail positions.
+    - avg_value: float, average value of the coordinate in the stable window.
     """
-    # Get the scorer name from the DataFrame columns
-    scorer = df.columns.get_level_values(0)[0]
-    total_frames = len(df)
-    swaps = []
+    # Define the window range, ensuring it's within the DataFrame bounds
+    window_start = max(current_frame - window_size, 0)
+    window_end = min(current_frame + 1, len(df))  # Add 1 to include the current frame
 
-    # Iterate over frames starting from the second frame
-    for frame in range(1, total_frames):
-        # Get head and tail positions for previous frame
-        head_x_prev = df.loc[frame - 1, (scorer, head_name, 'x')]
-        head_y_prev = df.loc[frame - 1, (scorer, head_name, 'y')]
-        tail_x_prev = df.loc[frame - 1, (scorer, tail_name, 'x')]
-        tail_y_prev = df.loc[frame - 1, (scorer, tail_name, 'y')]
+    # Get the windowed segment
+    window = df.iloc[window_start:window_end]
 
-        # Compute previous head-tail distance
-        D_prev = np.sqrt((head_x_prev - tail_x_prev)**2 + (head_y_prev - tail_y_prev)**2)
+    # Calculate the standard deviation for the given coordinate
+    std_dev = window[scorer][body_part][coord].std()
 
-        # Handle potential division by zero
-        if D_prev == 0:
-            D_prev = 1e-5  # Small number to avoid division by zero
-
-        # Get head and tail positions for current frame
-        head_x_curr = df.loc[frame, (scorer, head_name, 'x')]
-        head_y_curr = df.loc[frame, (scorer, head_name, 'y')]
-        tail_x_curr = df.loc[frame, (scorer, tail_name, 'x')]
-        tail_y_curr = df.loc[frame, (scorer, tail_name, 'y')]
-
-        # Compute head movement from previous frame to current frame
-        H_move = np.sqrt((head_x_curr - head_x_prev)**2 + (head_y_curr - head_y_prev)**2)
-        T_move = np.sqrt((tail_x_curr - tail_x_prev)**2 + (tail_y_curr - tail_y_prev)**2)
-        total_movement = H_move + T_move
-
-        # Check if head movement exceeds 90% of previous head-tail distance
-        if H_move > 0.9 * D_prev:
-            # Possible head-tail swap detected, attempt to swap
-            # Compute movements if we swap head and tail
-            swapped_H_move = np.sqrt((tail_x_curr - head_x_prev)**2 + (tail_y_curr - head_y_prev)**2)
-            swapped_T_move = np.sqrt((head_x_curr - tail_x_prev)**2 + (head_y_curr - tail_y_prev)**2)
-            swapped_total_movement = swapped_H_move + swapped_T_move
-
-            # If swapping reduces the total movement, perform the swap
-            if swapped_total_movement < total_movement:
-                # Perform swap
-                df.loc[frame, (scorer, head_name, 'x')], df.loc[frame, (scorer, tail_name, 'x')] = tail_x_curr, head_x_curr
-                df.loc[frame, (scorer, head_name, 'y')], df.loc[frame, (scorer, tail_name, 'y')] = tail_y_curr, head_y_curr
-                swaps.append(frame)
-                print(f"Swap performed at frame {frame}: total movement reduced from {total_movement:.2f} to {swapped_total_movement:.2f}")
-        # Else, no swap needed
-        else:
-            continue  # No action needed
-
-    print(f"\nTotal number of swaps detected and corrected: {len(swaps)}")
-    print("Frames where swaps occurred:", swaps)
-
-    return df
+    # Check if the standard deviation is below the threshold
+    if std_dev < threshold:
+        # Stable window found
+        avg_value = window[scorer][body_part][coord].mean()
+        return avg_value
+    else:
+        # If not stable, fall back to using the current frame's value as reference
+        return df.at[current_frame, (scorer, body_part, coord)]
 
 
-def find_initial_stable_window(df, scorer, head_name, tail_name, window_size, threshold=5.0):
+def correct_head_coord_with_dynamic_window(df, scorer, head_name, tail_name, window_size):
     """
-    Finds the first stable window where the head and tail positions are consistent.
+    Corrects the head's x and y coordinates using a reference from a dynamic stable window.
+    The window updates dynamically based on the current frame being processed.
+    If the current frame's value is outside the dynamic threshold, it swaps the head coordinate with the tail coordinate.
 
     Parameters:
     - df: pandas DataFrame containing the tracking data.
     - scorer: string, name of the scorer in the DataFrame.
     - head_name: string, name of the head body part.
     - tail_name: string, name of the tail body part.
-    - window_size: integer, size of the window to consider.
-    - threshold: float, maximum allowed standard deviation to consider the window stable.
+    - window_size: integer, size of the dynamic window to find the stable segment.
 
     Returns:
-    - start_frame: integer, starting frame of the stable window.
-    - avg_head_x, avg_head_y: floats, average head positions in the window.
-    - avg_tail_x, avg_tail_y: floats, average tail positions in the window.
+    - df_corrected: pandas DataFrame with corrected head positions.
     """
     total_frames = len(df)
-    for start_frame in range(total_frames - window_size + 1):
-        window = df.iloc[start_frame:start_frame + window_size]
 
-        # Calculate positional standard deviations
-        head_std = window[scorer][head_name][['x', 'y']].std().mean()
-        tail_std = window[scorer][tail_name][['x', 'y']].std().mean()
+    # Calculate the average distances between head and tail for x and y
+    avg_distance_x = (df[scorer][head_name]['x'] - df[scorer][tail_name]['x']).abs().mean()
+    avg_distance_y = (df[scorer][head_name]['y'] - df[scorer][tail_name]['y']).abs().mean()
 
-        # Check if variances are below the threshold
-        if head_std < threshold and tail_std < threshold:
-            # Stable window found
-            avg_head_x = window[scorer][head_name]['x'].mean()
-            avg_head_y = window[scorer][head_name]['y'].mean()
-            avg_tail_x = window[scorer][tail_name]['x'].mean()
-            avg_tail_y = window[scorer][tail_name]['y'].mean()
-            print(f"Stable window found starting at frame {start_frame}")
-            return start_frame, avg_head_x, avg_head_y, avg_tail_x, avg_tail_y
-    raise ValueError("No stable window found in the dataset")
+    # Compute the dynamic threshold as 50% of the average of avg_distance_x and avg_distance_y
+    average_avg_distance = (avg_distance_x + avg_distance_y) / 2
+    dynamic_threshold = average_avg_distance * 0.5
 
+    print(f"Dynamic threshold: {dynamic_threshold}")
 
-def correct_head_tail_swaps_with_reference(df, head_name, tail_name, window_size, threshold=5.0):
-    """
-    Corrects head-tail swaps using a reference from an initial stable window.
+    # Iterate over each coordinate (x and y) for the head
+    for coord in ['x', 'y']:
+        # Forward correction with dynamic window
+        for frame in range(total_frames):
+            # Find the dynamic stable window for the current coordinate
+            avg_value = find_dynamic_stable_window(
+                df, scorer, head_name, coord, frame, window_size, dynamic_threshold)
 
-    Parameters:
-    - df: pandas DataFrame containing the tracking data.
-    - head_name: string, name of the head body part.
-    - tail_name: string, name of the tail body part.
-    - window_size: integer, size of the window to find the stable segment.
-    - threshold: float, maximum allowed standard deviation to consider the window stable.
+            current_value = df.at[frame, (scorer, head_name, coord)]
+            # Check if the current value is within acceptable limits (threshold)
+            if abs(current_value - avg_value) > dynamic_threshold:
+                # Swap the head coordinate with the tail coordinate
+                tail_value = df.at[frame, (scorer, tail_name, coord)]
 
-    Returns:
-    - df_corrected: pandas DataFrame with corrected head and tail positions.
-    """
-    scorer = df.columns.get_level_values(0)[0]
-
-    # Step 1: Find initial stable window
-    start_frame, avg_head_x, avg_head_y, avg_tail_x, avg_tail_y = find_initial_stable_window(
-        df, scorer, head_name, tail_name, window_size, threshold)
-
-    swaps = []
-    total_frames = len(df)
-
-    # Step 2: Backward correction
-    for frame in range(start_frame - 1, -1, -1):
-        # Get current positions
-        head_x = df.loc[frame, (scorer, head_name, 'x')]
-        head_y = df.loc[frame, (scorer, head_name, 'y')]
-        tail_x = df.loc[frame, (scorer, tail_name, 'x')]
-        tail_y = df.loc[frame, (scorer, tail_name, 'y')]
-
-        # Compute distances to averages
-        dist_head_to_avg_head = np.sqrt((head_x - avg_head_x) ** 2 + (head_y - avg_head_y) ** 2)
-        dist_tail_to_avg_tail = np.sqrt((tail_x - avg_tail_x) ** 2 + (tail_y - avg_tail_y) ** 2)
-
-        dist_head_to_avg_tail = np.sqrt((head_x - avg_tail_x) ** 2 + (head_y - avg_tail_y) ** 2)
-        dist_tail_to_avg_head = np.sqrt((tail_x - avg_head_x) ** 2 + (tail_y - avg_head_y) ** 2)
-
-        # Decide whether to swap
-        original_total_distance = dist_head_to_avg_head + dist_tail_to_avg_tail
-        swapped_total_distance = dist_head_to_avg_tail + dist_tail_to_avg_head
-
-        if swapped_total_distance < original_total_distance:
-            # Perform swap
-            df.loc[frame, (scorer, head_name, 'x')], df.loc[frame, (scorer, tail_name, 'x')] = tail_x, head_x
-            df.loc[frame, (scorer, head_name, 'y')], df.loc[frame, (scorer, tail_name, 'y')] = tail_y, head_y
-            swaps.append(frame)
-            # Update averages after swap
-            head_x, head_y = tail_x, tail_y
-            tail_x, tail_y = head_x, head_y
-
-    # Step 3: Forward correction
-    for frame in range(start_frame + window_size, total_frames):
-        # Get current positions
-        head_x = df.loc[frame, (scorer, head_name, 'x')]
-        head_y = df.loc[frame, (scorer, head_name, 'y')]
-        tail_x = df.loc[frame, (scorer, tail_name, 'x')]
-        tail_y = df.loc[frame, (scorer, tail_name, 'y')]
-
-        # Compute distances to averages
-        dist_head_to_avg_head = np.sqrt((head_x - avg_head_x) ** 2 + (head_y - avg_head_y) ** 2)
-        dist_tail_to_avg_tail = np.sqrt((tail_x - avg_tail_x) ** 2 + (tail_y - avg_tail_y) ** 2)
-
-        dist_head_to_avg_tail = np.sqrt((head_x - avg_tail_x) ** 2 + (head_y - avg_tail_y) ** 2)
-        dist_tail_to_avg_head = np.sqrt((tail_x - avg_head_x) ** 2 + (tail_y - avg_head_y) ** 2)
-
-        # Decide whether to swap
-        original_total_distance = dist_head_to_avg_head + dist_tail_to_avg_tail
-        swapped_total_distance = dist_head_to_avg_tail + dist_tail_to_avg_head
-
-        if swapped_total_distance < original_total_distance:
-            # Perform swap
-            df.loc[frame, (scorer, head_name, 'x')], df.loc[frame, (scorer, tail_name, 'x')] = tail_x, head_x
-            df.loc[frame, (scorer, head_name, 'y')], df.loc[frame, (scorer, tail_name, 'y')] = tail_y, head_y
-            swaps.append(frame)
-            # Update averages after swap
-            head_x, head_y = tail_x, tail_y
-            tail_x, tail_y = head_x, head_y
-
-    print(f"\nTotal number of swaps detected and corrected: {len(swaps)}")
-    print("Frames where swaps occurred:", sorted(swaps))
+                # Perform the swap
+                df.at[frame, (scorer, head_name, coord)] = tail_value
+                df.at[frame, (scorer, tail_name, coord)] = current_value
 
     return df
 
-def final_alignment(df_original, df_corrected, head_name, tail_name):
+def hampel_filter(data, window_size=5, n_sigmas=3):
     """
-    Performs final alignment by checking if swapping head and tail in corrected data
-    results in better alignment with the original data.
+    Apply the Hampel filter to detect and correct outliers.
 
-    Parameters:
-    - df_original: pandas DataFrame with original tracking data.
-    - df_corrected: pandas DataFrame with corrected tracking data.
-    - head_name: string, name of the head body part.
-    - tail_name: string, name of the tail body part.
+    Args:
+        data (np.array or pd.Series): The data to filter.
+        window_size (int): Size of the moving window; must be odd.
+        n_sigmas (float): Number of standard deviations for outlier detection.
 
     Returns:
-    - df_aligned: pandas DataFrame with final aligned data.
+        np.array: The filtered data with outliers corrected.
     """
-    scorer = df_original.columns.get_level_values(0)[0]
+    n = len(data)
+    filtered_data = data.copy()
+    k = 1.4826  # Scaling factor for Gaussian distribution
+    half_window = (window_size - 1) // 2
 
-    # Compute total difference between original and corrected data
-    head_diff_x = df_corrected.loc[:, (scorer, head_name, 'x')] - df_original.loc[:, (scorer, head_name, 'x')]
-    head_diff_y = df_corrected.loc[:, (scorer, head_name, 'y')] - df_original.loc[:, (scorer, head_name, 'y')]
-    tail_diff_x = df_corrected.loc[:, (scorer, tail_name, 'x')] - df_original.loc[:, (scorer, tail_name, 'x')]
-    tail_diff_y = df_corrected.loc[:, (scorer, tail_name, 'y')] - df_original.loc[:, (scorer, tail_name, 'y')]
+    for i in range(n):
+        start = max(0, i - half_window)
+        end = min(n, i + half_window + 1)
+        window = data[start:end]
+        median = np.median(window)
+        MAD = k * np.median(np.abs(window - median))
+        threshold = n_sigmas * MAD
+        difference = np.abs(data[i] - median)
+        if difference > threshold:
+            filtered_data[i] = median
+    return filtered_data
 
-    total_difference = np.sum(np.abs(head_diff_x) + np.abs(head_diff_y) + np.abs(tail_diff_x) + np.abs(tail_diff_y))
+def correct_jumps_in_df(df, scorer, body_parts, coords, window_size=5, n_sigmas=3):
+    """
+    Correct jumps in the DataFrame for specified body parts and coordinates.
 
-    # Create a swapped version of df_corrected
-    df_swapped = df_corrected.copy()
+    Args:
+        df (pd.DataFrame): The DataFrame containing the coordinate data.
+        scorer (str): The name of the scorer.
+        body_parts (list): List of body parts to process.
+        coords (list): List of coordinates to process (default ['x', 'y']).
+        window_size (int): Window size for the Hampel filter.
+        n_sigmas (float): Number of standard deviations for threshold.
 
-    # Swap the head and tail data in df_swapped
-    temp_head_x = df_swapped.loc[:, (scorer, head_name, 'x')].copy()
-    temp_head_y = df_swapped.loc[:, (scorer, head_name, 'y')].copy()
+    Returns:
+        pd.DataFrame: The DataFrame with corrected data.
+    """
+    corrected_df = df.copy()
+    for body_part in body_parts:
+        for coord in coords:
+            data = df[scorer][body_part][coord]
+            corrected_data = hampel_filter(data.values, window_size=window_size, n_sigmas=n_sigmas)
+            # Use .loc to avoid SettingWithCopyWarning
+            corrected_df.loc[:, (scorer, body_part, coord)] = corrected_data
 
-    df_swapped.loc[:, (scorer, head_name, 'x')] = df_corrected.loc[:, (scorer, tail_name, 'x')].values
-    df_swapped.loc[:, (scorer, head_name, 'y')] = df_corrected.loc[:, (scorer, tail_name, 'y')].values
+    return corrected_df
 
-    df_swapped.loc[:, (scorer, tail_name, 'x')] = temp_head_x.values
-    df_swapped.loc[:, (scorer, tail_name, 'y')] = temp_head_y.values
-
-    # Compute total difference between original data and swapped corrected data
-    head_diff_swapped_x = df_swapped.loc[:, (scorer, head_name, 'x')] - df_original.loc[:, (scorer, head_name, 'x')]
-    head_diff_swapped_y = df_swapped.loc[:, (scorer, head_name, 'y')] - df_original.loc[:, (scorer, head_name, 'y')]
-    tail_diff_swapped_x = df_swapped.loc[:, (scorer, tail_name, 'x')] - df_original.loc[:, (scorer, tail_name, 'x')]
-    tail_diff_swapped_y = df_swapped.loc[:, (scorer, tail_name, 'y')] - df_original.loc[:, (scorer, tail_name, 'y')]
-
-    total_difference_swapped = np.sum(
-        np.abs(head_diff_swapped_x) + np.abs(head_diff_swapped_y) +
-        np.abs(tail_diff_swapped_x) + np.abs(tail_diff_swapped_y)
-    )
-
-    print(f"Total difference without swapping: {total_difference}")
-    print(f"Total difference after swapping: {total_difference_swapped}")
-
-    if total_difference_swapped < total_difference:
-        # Swapping improves alignment, so use df_swapped
-        df_aligned = df_swapped
-        print("Swapped head and tail in corrected data for final alignment.")
-    else:
-        df_aligned = df_corrected
-        print("No need to swap head and tail in corrected data.")
-
-    return df_aligned
 
 def save_data(df, input_file_path, output_file_path):
     # Extract the model name from the input file path
@@ -267,6 +171,7 @@ def save_data(df, input_file_path, output_file_path):
     # Save as CSV
     output_csv_path = output_file_path.replace('.h5', '.csv')
     df.to_csv(output_csv_path)
+    print(f"Corrected CSV data saved to {output_csv_path}")
 
     return model_name
 
@@ -281,21 +186,35 @@ def main(arg_list=None):
 
     args = parser.parse_args(arg_list)
 
-    # Perform the head-tail correction operation
-    df = pd.read_hdf(args.input_file_path)
+    try:
+        # Perform the head-tail correction operation
+        df = pd.read_hdf(args.input_file_path)
 
-    df_original = df.copy()
+        scorer = df.columns.get_level_values(0)[0]
 
-    # Correct head-tail swaps
-    df_corrected = correct_head_tail_swaps(df, args.head, args.tail)
+        df_corrected = correct_head_coord_with_dynamic_window(
+            df,
+            scorer=scorer,
+            head_name=args.head,
+            tail_name=args.tail,
+            window_size=args.window
+        )
 
-    # Correct head-tail swaps using the new function
-    df_corrected = correct_head_tail_swaps_with_reference(df_corrected, args.head, args.tail, args.window, args.threshold)
+        # Correct the jumps in your DataFrame
+        df_corrected = correct_jumps_in_df(
+            df_corrected,
+            scorer=scorer,
+            body_parts=[str(args.head), str(args.tail)],
+            coords=['x', 'y'],
+            window_size=args.window,
+            n_sigmas=1
+        )
 
-    # Perform final alignment
-    df_aligned = final_alignment(df_original, df_corrected, args.head, args.tail)
-
-    save_data(df_aligned, args.input_file_path, args.output_file_path)
+        save_data(df_corrected, args.input_file_path, args.output_file_path)
+        print("Processing completed successfully.")
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":
