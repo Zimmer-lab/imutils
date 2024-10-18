@@ -182,7 +182,6 @@ def main(arg_list=None):
     parser.add_argument("--head", default="head", help="Name of the head bodypart (default: head)")
     parser.add_argument("--tail", default="tail", help="Name of the tail bodypart (default: tail)")
     parser.add_argument("--window", type=int, default=20, help="Window size for averaging (default: 20)")
-    parser.add_argument("--threshold", type=float, default=10, help="Distance threshold for swap detection (default: 10)")
 
     args = parser.parse_args(arg_list)
 
