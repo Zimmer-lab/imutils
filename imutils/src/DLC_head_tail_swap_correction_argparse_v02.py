@@ -190,6 +190,25 @@ def main(arg_list=None):
         # Perform the head-tail correction operation
         df = pd.read_hdf(args.input_file_path)
 
+        # Check if the dataframe is empty
+        if df.empty:
+            print(f"The input H5 file '{args.input_file_path}' is empty.")
+
+            # Create empty DataFrame and save as H5 and CSV using pandas
+            empty_df = pd.DataFrame()
+
+            # Save empty DataFrame as H5
+            empty_df.to_hdf(args.output_file_path, key='df', mode='w')
+            print(f"Empty H5 file created at {args.output_file_path}")
+
+            # Save empty DataFrame as CSV
+            output_csv_path = args.output_file_path.replace('.h5', '.csv')
+            empty_df.to_csv(output_csv_path)
+            print(f"Empty CSV file created at {output_csv_path}")
+
+            # Exit after creating the empty files
+            sys.exit(1)
+
         scorer = df.columns.get_level_values(0)[0]
 
         df_corrected = correct_head_coord_with_dynamic_window(
