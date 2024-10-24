@@ -44,7 +44,7 @@ class LoguruConfigurator:
     def formatter(self, record):
         """Custom formatter for loguru logger."""
         if record["level"].no > logger.level("WARNING").no:
-            return self._consol_logger_format_debug
+            return self._consol_logger_format_debug + "\n"
         keyname = "{name}" if record["extra"]["classname"] == "Unknown" else "{extra[classname]}"
         return (
             "<green>{time:YYYY-MM-DD HH:mm:ss.SSSS!UTC}</green> | "
@@ -62,7 +62,7 @@ class LoguruConfigurator:
         if self._consol_sink_error_id is not None:
             logger.remove(self._consol_sink_error_id)
         if active:
-            self._consol_sink_id = logger.add(sys.stderr, colorize=True, format=self._consol_logger_format_debug, level="ERROR", enqueue=True)
+            self._consol_sink_error_id = logger.add(sys.stderr, colorize=True, format=self._consol_logger_format_debug, level="ERROR", enqueue=True)
     
     def set_consol_logger(self, logg_level: str, active: bool = True, detailed_error: bool = True):
         """Set the console logger.
