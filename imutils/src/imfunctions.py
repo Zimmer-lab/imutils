@@ -7,7 +7,7 @@ import pandas as pd
 import tifffile as tiff
 from natsort import natsorted
 
-from imutils.scopereader import MicroscopeDataReader
+from imutils import MicroscopeDataReader
 import dask.array as da
 from skimage.morphology import binary_erosion
 
@@ -54,18 +54,19 @@ def tiff2avi(tiff_path, avi_path, fourcc, fps):
     tiff_path = os.path.abspath(tiff_path)
     print('Path absolute:', tiff_path)
 
-    # Check if the input path is a directory or a BTF file
-    try:
+    if os.path.isdir(tiff_path):
+        # Initialize for directory
         reader_obj = MicroscopeDataReader(tiff_path)
-    except:
-        if tiff_path.lower().endswith('.btf'):
-            # Initialize for BTF file
-            reader_obj = MicroscopeDataReader(tiff_path, as_raw_tiff=True, raw_tiff_num_slices=1)
-        else:
-            raise ValueError("Invalid input file path. Please provide a directory or a .btf file.")
+    elif os.path.isfile(tiff_path):
+        # Initialize for a file (any file, not limited to .btf)
+        reader_obj = MicroscopeDataReader(tiff_path, as_raw_tiff=True, raw_tiff_num_slices=1)
+    else:
+        raise ValueError("Invalid input file path. Please provide a valid directory or file.")
 
     tif = da.squeeze(reader_obj.dask_array)
     frame_size_unknown_len = tif[0].shape
+
+    print(frame_size_unknown_len)
     # if image has channels get height and width (ignore 3rd output)
 
     print(f"Opening video writer with frame size {frame_size_unknown_len}")

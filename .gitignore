@@ -8,8 +8,5 @@ imutils/test_images/test_results/kymo6_cropped_16_7fps.avi
 *.avi
 *.pdf
 /build/lib/*
-/imutils.egg-info/dependency_links.txt
-/imutils.egg-info/PKG-INFO
-/imutils.egg-info/SOURCES.txt
-/imutils.egg-info/top_level.txt
 .idea/*
+imutils.egg-info/*

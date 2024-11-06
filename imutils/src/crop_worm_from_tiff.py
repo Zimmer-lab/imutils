@@ -8,7 +8,7 @@ import argparse
 import pandas as pd
 import openpyxl
 from openpyxl.utils.dataframe import dataframe_to_rows
-from imutils.scopereader import MicroscopeDataReader
+from imutils.scopedatamanager import MicroscopeDataReader
 import dask.array as da
 import tifffile as tiff
 

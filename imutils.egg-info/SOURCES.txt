@@ -25,8 +25,9 @@ imutils/dev/wb_heatmap.py
 imutils/dev/wbfm_post_processing.py
 imutils/loghelper/__init__.py
 imutils/loghelper/quick_loguru.py
-imutils/scopereader/__init__.py
-imutils/scopereader/microscope_data_reader.py
+imutils/scopedatamanager/__init__.py
+imutils/scopedatamanager/microscope_data_reader.py
+imutils/scopedatamanager/microscope_data_writer.py
 imutils/src/DLC_analyze_videos.py
 imutils/src/__init__.py
 imutils/src/bodyparts_coordinates.py

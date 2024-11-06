@@ -2,7 +2,7 @@
 
 Install the required packages with:
 ```sh
-pip install -r requirements.txt
+pip install -r Requirements.txt
 ```
 
 To install this as package make a local copy, activate your environment and run pip install:
@@ -24,8 +24,8 @@ See documentation (docs)
 ## Read Microscopy (Micromanager) dataset:
 #### Open Dataset:
 ```
->> from scopereader import MicroscopeDataReader
->> my_dataet = MicroscopeDataReader(dataset_path)
+>> from imutils import MicroscopeDataReader
+>> my_dataset = MicroscopeDataReader(dataset_path)
 ```
 #### Get Data as lazy loaded dask array:
 ```
@@ -43,6 +43,23 @@ See documentation (docs)
 ```
 # napari is not in the requirement file! Please install separately.
 >> my_dataset.open_in_napari()
+```
+### Additional Documentation
+Additional Documentation as jupyter lab book in docs!
+
+## Write Microscopy (ndtiff) dataset:
+#### Generate Dataset:
+```
+>> from imutils import MicroscopeDataWriter
+>> my_dataset = MicroscopeDataWriter(dataset_path, dataset_name)
+```
+#### Write Image with coordinates ('position', 'time', 'channel', 'z', 'y', 'x' , 'stage_xyz_pos')
+```
+>> my_dataset.put_image(image=pixels, time=t)
+```
+### Finish or Close dataset
+```
+>> my_dataset.close()
 ```
 ### Additional Documentation
 Additional Documentation as jupyter lab book in docs!
