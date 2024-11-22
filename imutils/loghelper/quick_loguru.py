@@ -10,8 +10,9 @@ import sys
 class LoguruConfigurator:
     """Just to help to configure loguru logger with some default settings.
        Pass the logger to processes and add <process_logger>.complete() on the end of the process."""
-    def __init__(self, log_level: str = "INFO", consol_output: bool = True, file_ouput: bool = False, log_file: Union[Path,str] = None, run_multiprocessing_handler: bool = False, configure_multiprocessing_client_queue: SimpleQueue = None):
+    def __init__(self, log_level: str = "INFO", consol_output: bool = True, file_ouput: bool = False, log_file: Union[Path,str] = None, run_multiprocessing_handler: bool = False, configure_multiprocessing_client_queue: SimpleQueue = None, debug: bool = False):
         
+        self.debug: bool = debug
         self._consol_output: bool = consol_output
         self._consol_sink_id: int = None
         self._consol_sink_error_id: int = None
@@ -35,13 +36,15 @@ class LoguruConfigurator:
             "<cyan>{extra[classname]}</cyan> | "
             "<level>{message}</level>")
         logger.configure(extra={"classname": "Unknown"})
-        logger.remove()
         self.logger = logger.bind(classname=self.__class__.__name__)
 
         self._run_multiprocessing_handler_bool: bool = run_multiprocessing_handler
+        self.logger_debug(f"run_multiprocessing_handler: {self._run_multiprocessing_handler_bool}")
         self._configure_multiprocessing_client_bool: bool = configure_multiprocessing_client_queue is not None
+        self.logger_debug(f"configure_multiprocessing_client: {self._configure_multiprocessing_client_bool}")
 
         if not self._configure_multiprocessing_client_bool:
+            logger.remove()
             self.set_consol_logger(log_level)
             self.set_consol_error_logger()
             self._file_log_level = log_level
@@ -69,6 +72,11 @@ class LoguruConfigurator:
 
     def __del__(self):
         self._stop_multiprocessing_handler()
+
+    def logger_debug(self, message: str):
+        """Log a debug message."""
+        if self.debug:
+            self.logger.debug(message)
 
     def formatter(self, record):
         """Custom formatter for loguru logger."""
@@ -99,7 +107,7 @@ class LoguruConfigurator:
             self._consol_sink_error_id = self.add_logger_sink(sys.stderr, log_level="ERROR", format=self.consol_logger_format_debug, colorize=True)
             #self._consol_sink_error_id = logger.add(sys.stderr, colorize=True, format=self.consol_logger_format_debug, log_level="ERROR", enqueue=True)
     
-    def set_consol_logger(self, log_level: str, active: bool = True, detailed_error: bool = True):
+    def set_consol_logger(self, log_level: str, active: bool = True, detailed_error: bool = False, details: bool = False):
         """Set the console logger.
         
         Args:
@@ -121,6 +129,7 @@ class LoguruConfigurator:
                 #self._consol_sink_id = logger.add(sys.stdout, colorize=True, format=self.consol_logger_format_debug, log_level=log_level, enqueue=True)
             else:
                 format = self.consol_logger_format_std if not detailed_error else self.formatter
+                format = self.consol_logger_format_debug if details else format
                 self._consol_sink_id = self.add_logger_sink(sys.stdout, log_level=log_level, format=format, colorize=True)
                 #self._consol_sink_id = logger.add(sys.stdout, colorize=True, format=format, log_level=log_level, enqueue=True)
     
@@ -207,7 +216,7 @@ class LoguruConfigurator:
             return
         if sink_id in self._logger_sink_dict:
 
-            self.logger.info(f"Removing sink id {sink_id}, sink: {self._logger_sink_dict[sink_id]['sink']}")
+            self.logger.info(f"Removing sink id {sink_id}, sink: {self._logger_sink_dict[sink_id]['sink']}, level: {self._logger_sink_dict[sink_id]['level']}")
             logger.remove(sink_id)
             del self._logger_sink_dict[sink_id]
         else:
@@ -247,13 +256,13 @@ class LoguruConfigurator:
 
     def _handler_process_target(self):
         """Handler process target."""
-        self.logger.info("Handler process target started.")
+        self.logger.info("Starting handler process.")
         self._handler_process_running.set()
         while self._handler_process_running.is_set():
             try:
                 record = self._queue.get()
                 level, message, classname = record["level"].name, record["message"], record["extra"]["classname"]
-                self.logger.debug(f"Handler process received record: {record}")
+                self.logger_debug(f"Handler process received record: {record}")
                 logger.bind(classname=classname).patch(lambda record: record.update(record)).log(level, message)
             except Exception as e:
                 self.logger.error(f"Error in handler process: {e}")
