@@ -10,10 +10,11 @@ import sys
 class LoguruConfigurator:
     """Just to help to configure loguru logger with some default settings.
        Pass the logger to processes and add <process_logger>.complete() on the end of the process."""
-    def __init__(self, log_level: str = "INFO", consol_output: bool = True, file_ouput: bool = False, log_file: Union[Path,str] = None, run_multiprocessing_handler: bool = False, configure_multiprocessing_client_queue: SimpleQueue = None, debug: bool = False):
+    def __init__(self, log_level: str = "INFO", consol_output: bool = True, consol_error_output: bool = False, file_ouput: bool = False, log_file: Union[Path,str] = None, run_multiprocessing_handler: bool = False, configure_multiprocessing_client_queue: SimpleQueue = None, debug: bool = False):
         
         self.debug: bool = debug
         self._consol_output: bool = consol_output
+        self._consol_error_output = consol_error_output
         self._consol_sink_id: int = None
         self._consol_sink_error_id: int = None
         self._consol_log_error_output: bool = False
@@ -45,8 +46,8 @@ class LoguruConfigurator:
 
         if not self._configure_multiprocessing_client_bool:
             logger.remove()
-            self.set_consol_logger(log_level)
-            self.set_consol_error_logger()
+            self.set_consol_logger(log_level, active = self._consol_output)
+            self.set_consol_error_logger(active = self._consol_error_output)
             self._file_log_level = log_level
             self._file_sink_id = None
             self._file_output = False
@@ -261,6 +262,9 @@ class LoguruConfigurator:
         while self._handler_process_running.is_set():
             try:
                 record = self._queue.get()
+                if record == "CLOSE":
+                    self.logger.info("Handler process received close signal.")
+                    break
                 level, message, classname = record["level"].name, record["message"], record["extra"]["classname"]
                 self.logger_debug(f"Handler process received record: {record}")
                 logger.bind(classname=classname).patch(lambda record: record.update(record)).log(level, message)
@@ -271,6 +275,7 @@ class LoguruConfigurator:
         """Stop the multiprocessing handler."""
         self._handler_process_running.clear()
         if self._handler_process is not None:
+            self._queue.put("CLOSE")
             self._handler_process.join()
         self.logger.info("Multiprocessing handler stopped.")
 
