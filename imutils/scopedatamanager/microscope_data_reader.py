@@ -1,5 +1,6 @@
 # Tools to read data from the microscopes
 from loguru import logger
+from imutils import FilterLogger
 from pathlib import Path
 import dask.array
 import numpy as np
@@ -12,7 +13,8 @@ class MicroscopeDataReader:
     If the folder is a NDTiff datastore, the data is read using the ndtiff package else tifffile is used.
     """
     def __init__(self, path: Union[Path,str], force_tifffile: bool = False, as_raw_tiff: bool = False,
-                 raw_tiff_num_slices: int = None, raw_tiff_is_2d: bool = False, verbose: int = 1):
+                 raw_tiff_num_slices: int = None, raw_tiff_is_2d: bool = False, verbose: Union[int, str] = 'TRACE',
+                 debug: bool = False):
         """
         Reads data from microscope data sets. The folder can be a NDTiff data store or a MMStack data store.
         If the folder is a NDTiff datastore, the data is read using the ndtiff package else tifffile is used.
@@ -34,7 +36,7 @@ class MicroscopeDataReader:
         self._force_tifffile = force_tifffile
         self.verbose = verbose
 
-        self.logger = logger.bind(classname=self.__class__.__name__)
+        self.logger = FilterLogger(classname=self.__class__.__name__, debug=debug, verbose=verbose)
         self._tifffile_version = '2023.7.10'
         self.directory_path: Path = None
         self.first_tiff_file: str = None

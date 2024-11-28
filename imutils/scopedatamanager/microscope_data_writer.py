@@ -1,4 +1,5 @@
 from loguru import logger
+from imutils import FilterLogger
 from pathlib import Path
 from datetime import datetime
 import numpy as np
@@ -20,7 +21,9 @@ class MicroscopeDataWriter:
             verbose (int, optional): Verbosity level of logger messages. Defaults to 1.
             **kwargs: Additional arguments for the NDTiffDataset class
     """
-    def __init__(self, dataset_path: Union[Path,str], dataset_name: str, add_date_time: bool = True, summary_metadata: dict = None, verbose: int = 1, **kwargs):
+    def __init__(self, dataset_path: Union[Path,str], dataset_name: str, add_date_time: bool = True,
+                 summary_metadata: dict = None, verbose: Union[int, str] = 'TRACE',
+                 debug: bool = False, **kwargs):
         """
         Writes data for microscope data sets as ndtiff.
         Metadata is stored in a header and as seperate files (_Metadata.json).
@@ -35,7 +38,7 @@ class MicroscopeDataWriter:
             **kwargs: Additional arguments for the NDTiffDataset class
         """
         self.verbose = verbose # set the verbosity level
-        self.logger = logger.bind(classname=self.__class__.__name__) # create a logger for the class
+        self.logger = FilterLogger(classname=self.__class__.__name__, debug=debug, verbose=verbose) # create a logger for the class
         self.init_date_time = datetime.now() # keep the time when the class was initialized
         
         # add date and time to the dataset name

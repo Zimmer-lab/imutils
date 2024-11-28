@@ -77,7 +77,10 @@ class LoguruConfigurator:
         verbose (Union[int, str], optional): Verbose level of this class. Defaults to 'TRACE'.
         debug (bool, optional): Activate or deactivate the debug mode of this class. Defaults to False.
         """
-    def __init__(self, log_level: str = "INFO", consol_output: bool = True, consol_error_output: bool = False, file_ouput: bool = False, log_file: Union[Path,str] = None, run_multiprocessing_handler: bool = False, configure_multiprocessing_client_queue: SimpleQueue = None, verbose: Union[int, str] = 'TRACE', debug: bool = False):
+    def __init__(self, log_level: str = "INFO", consol_output: bool = True, consol_error_output: bool = False,
+                 file_ouput: bool = False, log_file: Union[Path,str] = None, run_multiprocessing_handler: bool = False,
+                 configure_multiprocessing_client_queue: SimpleQueue = None, verbose: Union[int, str] = 'TRACE',
+                 debug: bool = False):
         
         self.debug_bool: bool = debug
         self._consol_output: bool = consol_output
