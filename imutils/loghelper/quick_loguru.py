@@ -79,7 +79,7 @@ class LoguruConfigurator:
         """
     def __init__(self, log_level: str = "INFO", consol_output: bool = True, consol_error_output: bool = False, file_ouput: bool = False, log_file: Union[Path,str] = None, run_multiprocessing_handler: bool = False, configure_multiprocessing_client_queue: SimpleQueue = None, verbose: Union[int, str] = 'TRACE', debug: bool = False):
         
-        self.debug: bool = debug
+        self.debug_bool: bool = debug
         self._consol_output: bool = consol_output
         self._consol_error_output = consol_error_output
         self._consol_sink_id: int = None
