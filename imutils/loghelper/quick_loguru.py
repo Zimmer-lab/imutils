@@ -62,8 +62,22 @@ class FilterLogger:
  
 class LoguruConfigurator:
     """Just to help to configure loguru logger with some default settings.
-       Pass the logger to processes and add <process_logger>.complete() on the end of the process."""
-    def __init__(self, log_level: str = "INFO", consol_output: bool = True, consol_error_output: bool = False, file_ouput: bool = False, log_file: Union[Path,str] = None, run_multiprocessing_handler: bool = False, configure_multiprocessing_client_queue: SimpleQueue = None, debug: bool = False):
+    Multiprocessing handler: If you want to use loguru in multiprocessing environment,
+    you can use the multiprocessing handler as main sink collecting the logs.
+    The client can be configured with the multiprocessing queue to send the logs to the handler.
+    Pass the .get_client_queue of __main__ to the LoguruConfigurator of the client. 
+    Args:
+        log_level (str, optional): Log level. Defaults to "INFO".
+        consol_output (bool, optional): Activate or deactivate the console output. Defaults to True.
+        consol_error_output (bool, optional): Activate or deactivate the console error output. Defaults to False.
+        file_ouput (bool, optional): Activate or deactivate the file output. Defaults to False.
+        log_file (Union[Path,str], optional): Path to the log file. Defaults to None.
+        run_multiprocessing_handler (bool, optional): Run the multiprocessing handler. Defaults to False.
+        configure_multiprocessing_client_queue (SimpleQueue, optional): Configure the multiprocessing client queue. Defaults to None.
+        verbose (Union[int, str], optional): Verbose level of this class. Defaults to 'TRACE'.
+        debug (bool, optional): Activate or deactivate the debug mode of this class. Defaults to False.
+        """
+    def __init__(self, log_level: str = "INFO", consol_output: bool = True, consol_error_output: bool = False, file_ouput: bool = False, log_file: Union[Path,str] = None, run_multiprocessing_handler: bool = False, configure_multiprocessing_client_queue: SimpleQueue = None, verbose: Union[int, str] = 'TRACE', debug: bool = False):
         
         self.debug: bool = debug
         self._consol_output: bool = consol_output
