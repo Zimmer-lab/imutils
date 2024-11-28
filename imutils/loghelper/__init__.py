@@ -1,1 +1,1 @@
-from .quick_loguru import LoguruConfigurator
+from .quick_loguru import LoguruConfigurator, FilterLogger

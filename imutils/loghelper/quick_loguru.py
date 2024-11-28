@@ -7,12 +7,76 @@ from typing import Union
 from pathlib import Path
 import sys
 
+class FilterLogger:
+    def __init__(self, classname: str = None, verbose: Union[int,str] = 'INFO', debug: bool = False):
+        self.debug_bool:bool = debug
+        self.log_levels: dict = {"TRACE": 5, "DEBUG": 10, "INFO": 20,
+                                 "SUCCESS": 25, "WARNING": 30, "ERROR": 40,
+                                 "CRITICAL": 50}
+        if type(verbose) == str:
+            try:
+                self.verbose: int = self.log_levels[verbose]
+            except KeyError:
+                self.verbose: int = self.log_levels["INFO"]
+        else:
+            self.verbose: int = verbose
+        if classname is None:
+            self._logger = logger.bind(classname=self.__class__.__name__)
+        else:
+            self._logger = logger.bind(classname=classname)
+    
+    def set_classname(self, classname: str):
+        self._logger = logger.bind(classname=classname)
+    
+    def trace(self, message: str):
+        if self.debug_bool and self.verbose <= 5:
+            self._logger.trace(message)
+    
+    def debug(self, message: str):
+        if self.debug_bool and self.verbose <=10:
+            self._logger.debug(message)
+    
+    def info(self, message: str):
+        if self.verbose <= 20:
+            self._logger.info(message)
+    
+    def success(self, message: str):
+        if self.verbose <= 25:
+            self._logger.success(message)
+    
+    def warning(self, message: str):
+        if self.verbose <= 30:
+            self._logger.warning(message)
+    
+    def error(self, message: str):
+        if self.verbose <= 40:
+            self._logger.error(message)
+            
+    def critical(self, message: str):
+        if self.verbose <= 50:
+            self._logger.critical(message)
+            
+    def log(self, level: str, message: str):
+        self._logger.log(level, message)
+
+ 
 class LoguruConfigurator:
     """Just to help to configure loguru logger with some default settings.
-       Pass the logger to processes and add <process_logger>.complete() on the end of the process."""
-    def __init__(self, log_level: str = "INFO", consol_output: bool = True, file_ouput: bool = False, log_file: Union[Path,str] = None, run_multiprocessing_handler: bool = False, configure_multiprocessing_client_queue: SimpleQueue = None, debug: bool = False):
+    Args:
+        log_level (str, optional): Log level. Defaults to "INFO".
+        consol_output (bool, optional): Activate or deactivate the console output. Defaults to True.
+        file_ouput (bool, optional): Activate or deactivate the file output. Defaults to False.
+        log_file (Union[Path,str], optional): Path to the log file. Defaults to None.
+        run_multiprocessing_handler (bool, optional): Activate or deactivate the multiprocessing handler. Defaults to False.
+        configure_multiprocessing_client_queue (SimpleQueue, optional): Multiprocessing client queue. Defaults to None.
+        verbose (Union[int,str], optional): Verbose level of this class. Defaults to 'TRACE'.
+        debug (bool, optional): Activate or deactivate the debug mode of this class. Defaults to False.
+        """
+    def __init__(self, log_level: str = "INFO", consol_output: bool = True, file_ouput: bool = False,
+                 log_file: Union[Path,str] = None, run_multiprocessing_handler: bool = False,
+                 configure_multiprocessing_client_queue: SimpleQueue = None, verbose: Union[int,str] = 'TRACE',
+                 debug: bool = False):
         
-        self.debug: bool = debug
         self._consol_output: bool = consol_output
         self._consol_sink_id: int = None
         self._consol_sink_error_id: int = None
@@ -36,12 +100,12 @@ class LoguruConfigurator:
             "<cyan>{extra[classname]}</cyan> | "
             "<level>{message}</level>")
         logger.configure(extra={"classname": "Unknown"})
-        self.logger = logger.bind(classname=self.__class__.__name__)
+        self.logger = FilterLogger(classname=self.__class__.__name__, debug=debug, verbose=verbose)
 
         self._run_multiprocessing_handler_bool: bool = run_multiprocessing_handler
-        self.logger_debug(f"run_multiprocessing_handler: {self._run_multiprocessing_handler_bool}")
+        self.logger.debug(f"run_multiprocessing_handler: {self._run_multiprocessing_handler_bool}")
         self._configure_multiprocessing_client_bool: bool = configure_multiprocessing_client_queue is not None
-        self.logger_debug(f"configure_multiprocessing_client: {self._configure_multiprocessing_client_bool}")
+        self.logger.debug(f"configure_multiprocessing_client: {self._configure_multiprocessing_client_bool}")
 
         if not self._configure_multiprocessing_client_bool:
             logger.remove()
@@ -71,14 +135,14 @@ class LoguruConfigurator:
             # you can be ether client or handler, not both
 
     def __del__(self):
+        self.logger.info("deallocating LoguruConfigurator.")
         self._stop_multiprocessing_handler()
 
-    def logger_debug(self, message: str):
-        """Log a debug message."""
-        if self.debug:
-            self.logger.debug(message)
+    def get_logger(self, classname: str):
+        """Get a logger with class name."""
+        return logger.bind(classname=classname)
 
-    def formatter(self, record):
+    def _formatter(self, record):
         """Custom formatter for loguru logger."""
         if record["level"].no > logger.level("WARNING").no:
             return self.consol_logger_format_debug + "\n"
@@ -128,7 +192,7 @@ class LoguruConfigurator:
                 self._consol_sink_id = self.add_logger_sink(sys.stdout, log_level=log_level, format=self.consol_logger_format_debug, colorize=True)
                 #self._consol_sink_id = logger.add(sys.stdout, colorize=True, format=self.consol_logger_format_debug, log_level=log_level, enqueue=True)
             else:
-                format = self.consol_logger_format_std if not detailed_error else self.formatter
+                format = self.consol_logger_format_std if not detailed_error else self._formatter
                 format = self.consol_logger_format_debug if details else format
                 self._consol_sink_id = self.add_logger_sink(sys.stdout, log_level=log_level, format=format, colorize=True)
                 #self._consol_sink_id = logger.add(sys.stdout, colorize=True, format=format, log_level=log_level, enqueue=True)
@@ -262,7 +326,7 @@ class LoguruConfigurator:
             try:
                 record = self._queue.get()
                 level, message, classname = record["level"].name, record["message"], record["extra"]["classname"]
-                self.logger_debug(f"Handler process received record: {record}")
+                self.logger.debug(f"Handler process received record: {record}")
                 logger.bind(classname=classname).patch(lambda record: record.update(record)).log(level, message)
             except Exception as e:
                 self.logger.error(f"Error in handler process: {e}")
@@ -292,3 +356,4 @@ class LoguruConfigurator:
     def write(self, message):
         """Write a message as sink."""
         self._queue.put(message.record)
+
