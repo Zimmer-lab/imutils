@@ -9,17 +9,12 @@ import sys
 
 class FilterLogger:
     def __init__(self, classname: str = None, verbose: Union[int,str] = 'INFO', debug: bool = False):
-        self.debug_bool:bool = debug
+        self.debug_bool:bool = None
+        self.verbose: int = None
         self.log_levels: dict = {"TRACE": 5, "DEBUG": 10, "INFO": 20,
                                  "SUCCESS": 25, "WARNING": 30, "ERROR": 40,
                                  "CRITICAL": 50}
-        if type(verbose) == str:
-            try:
-                self.verbose: int = self.log_levels[verbose]
-            except KeyError:
-                self.verbose: int = self.log_levels["INFO"]
-        else:
-            self.verbose: int = verbose
+        self.set_filter_level(verbose, debug)
         if classname is None:
             self._logger = logger.bind(classname=self.__class__.__name__)
         else:
@@ -27,6 +22,16 @@ class FilterLogger:
     
     def set_classname(self, classname: str):
         self._logger = logger.bind(classname=classname)
+    
+    def set_filter_level(self, verbose: Union[int,str] = 'INFO', debug: bool = False):
+        self.debug_bool = debug
+        if type(verbose) == str:
+            try:
+                self.verbose = self.log_levels[verbose]
+            except KeyError:
+                self.verbose = self.log_levels["INFO"]
+        else:
+            self.verbose = verbose
     
     def trace(self, message: str):
         if self.debug_bool and self.verbose <= 5:
