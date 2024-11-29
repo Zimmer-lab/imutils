@@ -8,6 +8,15 @@ from pathlib import Path
 import sys
 
 class FilterLogger:
+    """Filter logger class for loguru logger.
+    This class is a wrapper for loguru logger. It can filter the log messages bevor sending them to the logger.
+    The filter is based on the log level and the debug mode and adds a identifier called classname.
+    verbose is equal to the log level names and int values, debug is a boolean that blocks debug and trace methods.
+    Args:
+        classname (str, optional): Identifier. Defaults to None (FilterLogger).
+        verbose (Union[int,str], optional): log level. Defaults to 'INFO'.
+        debug (bool, optional): filter debug and trace. Defaults to False.
+    """
     def __init__(self, classname: str = None, verbose: Union[int,str] = 'INFO', debug: bool = False):
         self.debug_bool:bool = None
         self.verbose: int = None
@@ -62,7 +71,13 @@ class FilterLogger:
             self._logger.critical(message)
             
     def log(self, level: str, message: str):
-        self._logger.log(level, message)
+        try:
+            level_int = self.log_levels[level]
+        except KeyError:
+            self._logger.warning(f"Log level {level} not found. Using 0 instead.")
+            level_int = 0
+        if self.verbose <= level_int:
+            self._logger.log(level, message)
 
  
 class LoguruConfigurator:
@@ -73,8 +88,8 @@ class LoguruConfigurator:
     Pass the .get_client_queue of __main__ to the LoguruConfigurator of the client. 
     Args:
         log_level (str, optional): Log level. Defaults to "INFO".
-        consol_output (bool, optional): Activate or deactivate the console output. Defaults to True.
-        consol_error_output (bool, optional): Activate or deactivate the console error output. Defaults to False.
+        console_output (bool, optional): Activate or deactivate the console output. Defaults to True.
+        console_error_output (bool, optional): Activate or deactivate the console error output. Defaults to False.
         file_ouput (bool, optional): Activate or deactivate the file output. Defaults to False.
         log_file (Union[Path,str], optional): Path to the log file. Defaults to None.
         run_multiprocessing_handler (bool, optional): Run the multiprocessing handler. Defaults to False.
@@ -82,26 +97,27 @@ class LoguruConfigurator:
         verbose (Union[int, str], optional): Verbose level of this class. Defaults to 'TRACE'.
         debug (bool, optional): Activate or deactivate the debug mode of this class. Defaults to False.
         """
-    def __init__(self, log_level: str = "INFO", consol_output: bool = True, consol_error_output: bool = False,
+    def __init__(self, log_level: str = "INFO", console_output: bool = True, console_error_output: bool = False,
                  file_ouput: bool = False, log_file: Union[Path,str] = None, run_multiprocessing_handler: bool = False,
                  configure_multiprocessing_client_queue: SimpleQueue = None, verbose: Union[int, str] = 'TRACE',
                  debug: bool = False):
         
         self.debug_bool: bool = debug
-        self._consol_output: bool = consol_output
-        self._consol_error_output = consol_error_output
-        self._consol_sink_id: int = None
-        self._consol_sink_error_id: int = None
-        self._consol_log_error_output: bool = False
+        self.log_level: str = log_level
+        self._console_output: bool = console_output
+        self._console_error_output = console_error_output
+        self._console_sink_id: int = None
+        self._console_sink_error_id: int = None
+        self._console_log_error_output: bool = False
         self.log_levels: dict = {"TRACE": 5, "DEBUG": 10, "INFO": 20, "SUCCESS": 25, "WARNING": 30, "ERROR": 40, "CRITICAL": 50}
         self._logger_sink_dict: dict = {}
-        self.consol_logger_format_debug = (
+        self.console_logger_format_debug = (
             "<green>{time:YYYY-MM-DD HH:mm:ss.SSSS!UTC}</green> | "
             "<level>{level: <8}</level> | "
             "<level>{message}</level> | "
             "<cyan>M_{module}</cyan>:<cyan>N_{name}</cyan>:class_<cyan>{extra[classname]}</cyan>:<cyan>func_{function}</cyan>:<cyan>line_{line}</cyan> | "
             "<m>t_{elapsed}</m>:<m>p_{process}</m>:<m>th_{thread}</m>:<m>ex_{exception}</m>")
-        self.consol_logger_format_std = (
+        self.console_logger_format_std = (
             "<green>{time:YYYY-MM-DD HH:mm:ss.SSSS!UTC}</green> | "
             "<level>{level: <8}</level> | "
             "<cyan>{extra[classname]}</cyan> | "
@@ -121,8 +137,8 @@ class LoguruConfigurator:
 
         if not self._configure_multiprocessing_client_bool:
             logger.remove()
-            self.set_consol_logger(log_level, active = self._consol_output)
-            self.set_consol_error_logger(active = self._consol_error_output)
+            self.set_console_logger(log_level, active = self._console_output)
+            self.set_console_error_logger(active = self._console_error_output)
             self._file_log_level = log_level
             self._file_sink_id = None
             self._file_output = False
@@ -150,14 +166,23 @@ class LoguruConfigurator:
         self.logger.info("deallocating LoguruConfigurator.")
         self._stop_multiprocessing_handler()
 
-    def get_logger(self, classname: str):
+    def get_filter_logger(self, classname: str, verbose: Union[int,str] = None, debug: bool = None):
+        """Get a filter logger.
+        Args:
+            classname (str): Log message identifier.
+            verbose (Union[int,str], optional): log level. Defaults to None (takes global log_level).
+            debug (bool, optional): filter debug and trace. Defaults to None (takes configurator state)."""
+        if verbose is None:
+            verbose = self.log_level
+        if debug is None:
+            debug = self.debug_bool
         """Get a logger with class name."""
-        return logger.bind(classname=classname)
+        return FilterLogger(classname=classname, verbose=verbose, debug=debug)
 
     def _formatter(self, record):
         """Custom formatter for loguru logger."""
         if record["level"].no > logger.level("WARNING").no:
-            return self.consol_logger_format_debug + "\n"
+            return self.console_logger_format_debug + "\n"
         keyname = "{name}" if record["extra"]["classname"] == "Unknown" else "{extra[classname]}"
         return (
             "<green>{time:YYYY-MM-DD HH:mm:ss.SSSS!UTC}</green> | "
@@ -165,53 +190,51 @@ class LoguruConfigurator:
             "<cyan>%s</cyan> | " 
             "<level>{message}</level>\n" % keyname)
     
-    def set_consol_error_logger(self, active: bool = True):
+    def set_console_error_logger(self, active: bool = True):
         """Set the stderr logger for error messages.
         
         Args:
             active (bool, optional): Activate or deactivate the error logger. Defaults to True.
         """
         if self._configure_multiprocessing_client_bool:
-            self.logger.warning("set_consol_error_logger is not available in multiprocessing client mode.")
+            self.logger.warning("set_console_error_logger is not available in multiprocessing client mode.")
             return
-        self._consol_log_error_output = active
-        if self._consol_sink_error_id is not None:
-            #logger.remove(self._consol_sink_error_id)
-            self.remove_logger_sink(self._consol_sink_error_id)
-            self._consol_sink_error_id = None
+        self._console_log_error_output = active
+        if self._console_sink_error_id is not None:
+            #logger.remove(self._console_sink_error_id)
+            self.remove_logger_sink(self._console_sink_error_id)
+            self._console_sink_error_id = None
         if active:
-            self._consol_sink_error_id = self.add_logger_sink(sys.stderr, log_level="ERROR", format=self.consol_logger_format_debug, colorize=True)
-            #self._consol_sink_error_id = logger.add(sys.stderr, colorize=True, format=self.consol_logger_format_debug, log_level="ERROR", enqueue=True)
+            self._console_sink_error_id = self.add_logger_sink(sys.stderr, log_level="ERROR", format=self.console_logger_format_debug, colorize=True)
+            #self._console_sink_error_id = logger.add(sys.stderr, colorize=True, format=self.console_logger_format_debug, log_level="ERROR", enqueue=True)
     
-    def set_consol_logger(self, log_level: str, active: bool = True, detailed_error: bool = False, details: bool = False):
+    def set_console_logger(self, log_level: str, active: bool = True, detailed_error: bool = False, details: bool = False):
         """Set the console logger.
-        
         Args:
             log_level (str): Log level for the console logger.
             active (bool, optional): Activate or deactivate the console logger. Defaults to True.
         """
         if self._configure_multiprocessing_client_bool:
-            self.logger.warning("set_consol_logger is not available in multiprocessing client mode.")
+            self.logger.warning("set_console_logger is not available in multiprocessing client mode.")
             return
-        self._consol_log_level = log_level
-        self._consol_log_output = active
-        if self._consol_sink_id is not None:
-            self.remove_logger_sink(self._consol_sink_id)
-            self._consol_sink_id = None
-            #logger.remove(self._consol_sink_id)
+        self._console_log_level = log_level
+        self._console_log_output = active
+        if self._console_sink_id is not None:
+            self.remove_logger_sink(self._console_sink_id)
+            self._console_sink_id = None
+            #logger.remove(self._console_sink_id)
         if active:
             if log_level == "DEBUG" or log_level == "TRACE":
-                self._consol_sink_id = self.add_logger_sink(sys.stdout, log_level=log_level, format=self.consol_logger_format_debug, colorize=True)
-                #self._consol_sink_id = logger.add(sys.stdout, colorize=True, format=self.consol_logger_format_debug, log_level=log_level, enqueue=True)
+                self._console_sink_id = self.add_logger_sink(sys.stdout, log_level=log_level, format=self.console_logger_format_debug, colorize=True)
+                #self._console_sink_id = logger.add(sys.stdout, colorize=True, format=self.console_logger_format_debug, log_level=log_level, enqueue=True)
             else:
-                format = self.consol_logger_format_std if not detailed_error else self._formatter
-                format = self.consol_logger_format_debug if details else format
-                self._consol_sink_id = self.add_logger_sink(sys.stdout, log_level=log_level, format=format, colorize=True)
-                #self._consol_sink_id = logger.add(sys.stdout, colorize=True, format=format, log_level=log_level, enqueue=True)
+                format = self.console_logger_format_std if not detailed_error else self._formatter
+                format = self.console_logger_format_debug if details else format
+                self._console_sink_id = self.add_logger_sink(sys.stdout, log_level=log_level, format=format, colorize=True)
+                #self._console_sink_id = logger.add(sys.stdout, colorize=True, format=format, log_level=log_level, enqueue=True)
     
     def set_json_file_logger(self, log_level: str, file: Union[Path,str], active: bool = True):
         """Set the json file logger.
-        
         Args:
             log_level (str): Log level for the json file logger.
             file (Union[Path,str]): Path to the json file.
@@ -231,7 +254,6 @@ class LoguruConfigurator:
             
     def set_file_logger(self, log_level: str, file: Union[Path,str], active: bool = True):
         """Set the file logger.
-        
         Args:
             log_level (str): Log level for the file logger.
             file (Union[Path,str]): Path to the file.
@@ -248,15 +270,14 @@ class LoguruConfigurator:
             #logger.remove(self._file_sink_id)
         if active:
             if log_level == "DEBUG" or log_level == "TRACE":
-                self._file_sink_id = self.add_logger_sink(file, log_level=log_level, format=self.consol_logger_format_debug)
-                #self._file_sink_id = logger.add(file, format=self.consol_logger_format_debug, log_level=log_level, enqueue=True)
+                self._file_sink_id = self.add_logger_sink(file, log_level=log_level, format=self.console_logger_format_debug)
+                #self._file_sink_id = logger.add(file, format=self.console_logger_format_debug, log_level=log_level, enqueue=True)
             else:
                 self._file_sink_id = self.add_logger_sink(file, log_level=log_level, format=self.file_logger_format_std)
                 #self._file_sink_id = logger.add(file, format=self.file_logger_format_std, log_level=log_level, enqueue=True)
 
     def add_logger_sink(self, sink, log_level: str, format: str, filter=None, colorize=None, serialize=False, backtrace=True, diagnose=True, context=None, catch=True, **kwargs):
         """Add a new logger.
-        
         Args:
             sink: Sink for the logger.
             log_level (str): Log level for the logger.
@@ -283,7 +304,6 @@ class LoguruConfigurator:
     
     def remove_logger_sink(self, sink_id):
         """Remove a logger.
-        
         Args:
             sink_id: Id of the logger.
         """
@@ -300,7 +320,6 @@ class LoguruConfigurator:
 
     def write_log(self, log_level: str = "INFO", message: str = "NOTHING TO LOG"):
         """Write a log message.
-        
         Args:
             message (str): Log message.
             log_level (str, optional): Log level. Defaults to "INFO".
