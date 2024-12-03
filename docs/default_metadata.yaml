@@ -1,0 +1,187 @@
+NWBFile:
+  # Base file object containing metadata on the overall experiment
+  session_description: "<description of the experiment>"  # text
+  identifier: "<identifier label for this experiment>"  # text
+  session_start_time: "<time when the experiment started>"  # datetime
+  lab: Zimmer  # text
+  institution: University of Vienna  # text
+  related_publications: "<publications associated with this dataset>"  # text
+
+CElegansSubject:
+  # Subject file containing metadata about the experiment's subject
+  subject_id: "<unique identifier for this animal>"  # text
+  date_of_birth: "<date of birth of the animal>"  # datetime
+  growth_stage: "<current growth stage of the animal>"  # text
+  growth_stage_time: "<time spent in current growth stage>"  # timedelta
+  cultivation_temp: "<temperature animals were raised in>"  # float
+  description: "<description of the subject>"  # text
+  species: "<species of the animal>"  # text
+  sex: "<sex of the animal: O for hermaphrodite, M for male>"  # text
+  strain: "<strain of the animal>"  # text
+
+Device:
+  # Device used to acquire data
+  name: "Spinning disk confocal"  # text
+  description: "Zeiss Observer.Z1 Inverted Microscope with Yokogawa CSU-X1, Zeiss LD LCI Plan-Apochromat 40x WI objective 1.2 NA"  # text
+  manufacturer: "Zeiss"  # text
+
+NeuroPALImagingVolume:
+  # ImagingVolume object for NeuroPAL structural image
+  name: "NeuroPALImVol"  # fixed text
+  optical_channel_plus: "<optical channel object>"  # OpticalChannelPlus object
+  order_optical_channels: "<optical channel ordering object>"  # OpticalChannelRefs object
+  description: "<description of the imaging volume>"  # text
+  device: "<device used for acquisition>"  # Device object
+  location: "<body part of the worm being imaged>"  # text
+  grid_spacing: [0.4, 0.4, 1.0]  # list of floats
+  grid_spacing_unit: um  # text
+  origin_coords: [0, 0, 0]  # list of integers
+  origin_coords_unit: "<unit of origin_coords>"  # text
+  reference_frame: "worm head/tail"  # fixed text
+
+
+# List of available optical channels in the zimmer lab
+OpticalChannelPlus:  # Empty
+  # Metadata for each channel used in the image
+  name: "<fluorophore used>"  # text
+  description: "<filter used>"  # text
+  excitation_lambda: "<wavelength of excitation laser>"  # float
+  excitation_range: ["<low>", "<high>"]  # list of floats
+  emission_range: ["<low>", "<high>"]  # list of floats
+  emission_lambda: "<center wavelength of emission filter>"  # float
+
+
+OpticalChannelPlus1:
+  - name: "mNeptune 2.5"  # fluorophore used
+    description: "Chroma ET 647/57"  # filter used
+    excitation_lambda: 561  # wavelength of excitation laser
+    excitation_range: [559.5, 562.5]  # ±1.5 nm around excitation
+    emission_range: [643.5, 650.5]  # ±3.5 nm around emission center
+    emission_lambda: 647  # center wavelength of emission filter
+
+OpticalChannelPlus2:
+  - name: "Tag RFP-T"  # fluorophore used
+    description: "Chroma ET 586/20"  # filter used
+    excitation_lambda: 561  # wavelength of excitation laser
+    excitation_range: [559.5, 562.5]  # ±1.5 nm around excitation
+    emission_range: [576, 596]  # ±10 nm around emission center
+    emission_lambda: 586  # center wavelength of emission filter
+
+OpticalChannelPlus3:
+  - name: "CyOFP1"  # fluorophore used
+    description: "BrightLine HC 617/73"  # filter used
+    excitation_lambda: 488  # wavelength of excitation laser
+    excitation_range: [486.5, 489.5]  # ±1.5 nm around excitation
+    emission_range: [580.5, 653.5]  # ±36.5 nm around emission center
+    emission_lambda: 617  # center wavelength of emission filter
+    comments: "Excited with blue, observe in red"
+
+OpticalChannelPlus4:
+  - name: "mTagBFP2"  # fluorophore used
+    description: "BrightLine HC 447/60"  # filter used
+    excitation_lambda: 405  # wavelength of excitation laser
+    excitation_range: [403.5, 406.5]  # ±1.5 nm around excitation
+    emission_range: [417, 477]  # ±30 nm around emission center
+    emission_lambda: 447  # center wavelength of emission filter
+    comments: "UV excited, observe in blue"
+
+OpticalChannelPlus5:
+  - name: "GFP-GCaMP"  # fluorophore used
+    description: "BrightLine HC 525/50"  # filter used
+    excitation_lambda: 488  # wavelength of excitation laser
+    excitation_range: [486.5, 489.5]  # ±1.5 nm around excitation
+    emission_range: [500, 550]  # ±25 nm around emission center
+    emission_lambda: 525  # center wavelength of emission filter
+
+OpticalChannelPlus5:
+  - name: "mScarlet"  # fluorophore used
+    description: "Chroma ET 617/73"  # filter used
+    excitation_lambda: 561  # wavelength of excitation laser
+    excitation_range: [560.5, 562.5]  # ±1.5 nm around excitation
+    emission_range: [580.5, 653.5]  # ±25 nm around emission center
+    emission_lambda: 617  # center wavelength of emission filter
+
+
+OpticalChannelRefs:
+  # Ordering references for OpticalChannelPlus objects
+  name: "OpticalChannelRefs"  # fixed text
+  channels: ["<channel descriptors>"]  # list of text
+
+NeuroPALImageRaw:
+  # MultiChannelVolume containing raw NeuroPAL image data
+  name: "NeuroPALImageRaw"  # fixed text
+  description: "<description of the image>"  # text
+  RGBW_channels: [0, 1, 2, 3]  # list of integers
+  data: "<raw image data array>"  # matrix of ints
+  imaging_volume: "<linked imaging volume>"  # ImagingVolume object
+
+NeuroPALSegmentation:
+  # NeuroPAL image segmentation details
+  ImageSegmentation:
+    name: "NeuroPALSegmentation"  # fixed text
+    PlaneSegmentations: ["<plane segmentations>"]  # list of PlaneSegmentation objects
+  PlaneSegmentation:
+    name: "NeuroPALNeurons"  # fixed text
+    description: "<segmentation description>"  # text
+    imaging_plane: "<linked imaging volume>"  # ImagingVolume object
+
+CalciumImagingVolume:
+  # ImagingVolume object for Calcium image series
+  name: "CalciumImVol"  # fixed text
+  optical_channel_plus: "<optical channel object>"  # OpticalChannelPlus object
+  order_optical_channels: "<optical channel ordering object>"  # OpticalChannelRefs object
+  description: "<description of the imaging volume>"  # text
+  device: "<device used for acquisition>"  # Device object
+  location: "<body part of the worm being imaged>"  # text
+  grid_spacing: [0.325, 0.325, 1.5]  # list of floats
+  grid_spacing_unit: um  # text
+  origin_coords: [0, 0, 0]  # list of integers
+  origin_coords_unit: "<unit of origin_coords>"  # text
+  reference_frame: "worm head/tail"  # fixed text
+
+CalciumImageSeries:
+  # MultiChannelVolumeSeries object for raw Calcium image data
+  name: "CalciumImageSeries"  # fixed text
+  description: "<description of the image series>"  # text
+  comments: "<additional comments>"  # text
+  data: "<raw image data array>"  # array of ints
+  device: "<linked device>"  # Device object
+  unit: "<unit of data>"  # text
+  scan_line_rate: "<lines scanned per second>"  # float
+  dimension: [24, 600, 950]  # list of ints
+  resolution: "<smallest meaningful distance>"  # float
+  rate: 3.7  # float
+  imaging_volume: "<linked imaging volume>"  # ImagingVolume object
+
+CalciumImageSegmentation:
+  # Segmentation for Calcium image series
+  ImageSegmentation:
+    name: "CalciumSeriesSegmentation"  # or "CalciumSeriesSegmentationUntracked"  # text
+    plane_segmentations: ["<plane segmentation objects>"]  # list of PlaneSegmentation objects
+  PlaneSegmentation:
+    name: "Seg_tpoint_(t)"  # where '(t)' is the frame index  # text
+    description: "<segmentation description>"  # text
+    imaging_plane: "<linked imaging volume>"  # ImagingVolume object
+    reference_images: "<linked image series>"  # MultiChannelVolumeSeries object
+
+CalciumActivityData:
+  # Fluorescence data and DfOverF information
+  RoiTableRegion:
+    description: "all segmented neurons associated with calcium image series"  # fixed text
+    region: ["<ROI indices>"]  # list of ints
+  RoiResponseSeries:
+    name: "SignalCalciumImResponseSeries"  # fixed text
+    description: "<response series description>"  # text
+    data: "<activity data array>"  # array of floats
+    rois: "<linked RoiTableRegion>"  # RoiTableRegion object
+
+  # Three options: 1) single channel df/f0; 2) single channel raw fluorescence; 3) multi-channel raw fluorescence
+  SignalDfOverF:  # Only if single channel
+    name: "SignalDFoF"  # text
+    roi_response_series: "<linked RoiResponseSeries>"  # RoiResponseSeries object
+  SignalFluorescence:
+    name: "SignalFluorescence"  # text
+    roi_response_series: "<linked RoiResponseSeries>"  # RoiResponseSeries object
+  ReferenceFluorescence:
+    name: "ReferenceFluorescence"  # text
+    roi_response_series: "<linked RoiResponseSeries>"  # RoiResponseSeries object
