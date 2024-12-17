@@ -1,4 +1,16 @@
-# This script processes TIFF images by segmenting, cropping, and analyzing frames based on regions of interest (ROIs). 
+'''
+This script processes TIFF images by segmenting, cropping, and analyzing regions of interest (ROIs) based on the largest segmented region in each frame. It performs the following:
+
+Frame Processing: For each frame in the TIFF stack, it segments the image to find regions, calculates the centroid of the largest region, and crops the image around this centroid.
+Cropping: The frame is cropped around the largest region to a specified size.
+ROI Data Collection: The coordinates of the top-left corner of each crop (ROI) are recorded.
+Excel Output: The ROI coordinates (x and y) are saved in an Excel file.
+TIFF File Output: The cropped frames are saved to a new TIFF file.
+
+In summary, the script processes RAW DATA TIFF image stacks by cropping and analyzing regions based on the largest object, saving both the cropped images and the ROI data to specified output files.
+
+'''
+
 
 import os
 import tifffile
