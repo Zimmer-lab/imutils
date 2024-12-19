@@ -106,6 +106,7 @@ class LoguruConfigurator:
                  debug: bool = False):
         
         self.debug_bool: bool = debug
+        self.verbose: Union[int, str] = verbose
         self.log_level: str = log_level
         self._console_output: bool = console_output
         self._console_error_output = console_error_output
@@ -170,20 +171,19 @@ class LoguruConfigurator:
         self._stop_multiprocessing_handler()
 
     def set_log_level(self, verbose: Union[int,str] = 'INFO', debug: bool = False):
-        """Set the log level.
-        Args:
-            verbose (Union[int,str]): Log level."""
+        """Set the log level for internal class debugging."""
         self.debug_bool: bool = debug
+        self.verbose: str = verbose
         self.logger.set_filter_level(verbose, debug)
 
     def get_filter_logger(self, classname: str, verbose: Union[int,str] = None, debug: bool = None):
         """Get a filter logger.
         Args:
             classname (str): Log message identifier.
-            verbose (Union[int,str], optional): log level. Defaults to None (takes global log_level).
+            verbose (Union[int,str], optional): log level. Defaults to None (takes configurator state).
             debug (bool, optional): filter debug and trace. Defaults to None (takes configurator state)."""
         if verbose is None:
-            verbose = self.log_level
+            verbose = self.verbose
         if debug is None:
             debug = self.debug_bool
         """Get a logger with class name."""
