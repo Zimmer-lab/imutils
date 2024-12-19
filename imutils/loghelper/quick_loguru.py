@@ -1,5 +1,7 @@
 # Simple loguru configurator
 from loguru import logger
+from loguru._logger import Core as _Core
+from loguru._logger import Logger as _Logger
 from multiprocessing import SimpleQueue
 from multiprocessing.queues import SimpleQueue as SimpleQueueClass
 import threading
@@ -7,7 +9,7 @@ from typing import Union
 from pathlib import Path
 import sys
 
-class FilterLogger:
+class FilterLogger(_Logger):
     """Filter logger class for loguru logger.
     This class is a wrapper for loguru logger. It can filter the log messages bevor sending them to the logger.
     The filter is based on the log level and the debug mode and adds a identifier called classname.
@@ -18,7 +20,8 @@ class FilterLogger:
         debug (bool, optional): filter debug and trace. Defaults to False.
     """
     def __init__(self, classname: str = None, verbose: Union[int,str] = 'INFO', debug: bool = False):
-        self.debug_bool:bool = None
+        super().__init__(core=_Core(), exception=None, depth=0, record=False, lazy=False, colors=False, raw=False, capture=True, patchers=[], extra={},)
+        self.debug_bool: bool = None
         self.verbose: int = None
         self.log_levels: dict = {"TRACE": 5, "DEBUG": 10, "INFO": 20,
                                  "SUCCESS": 25, "WARNING": 30, "ERROR": 40,
@@ -165,6 +168,13 @@ class LoguruConfigurator:
     def __del__(self):
         self.logger.info("deallocating LoguruConfigurator.")
         self._stop_multiprocessing_handler()
+
+    def set_log_level(self, verbose: Union[int,str] = 'INFO', debug: bool = False):
+        """Set the log level.
+        Args:
+            verbose (Union[int,str]): Log level."""
+        self.debug_bool: bool = debug
+        self.logger.set_filter_level(verbose, debug)
 
     def get_filter_logger(self, classname: str, verbose: Union[int,str] = None, debug: bool = None):
         """Get a filter logger.
