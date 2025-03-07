@@ -91,16 +91,17 @@ class MicroscopeDataWriter:
         metadata = self._create_complete_metadata()
         with open(metadata_file, 'w') as file:
             json.dump(metadata, file, indent=4)
-        
+
     def _check_metadata_format(self, metadata: dict):
-        # check if the metadata is in the correct format
+        # Check if the metadata is a dictionary
         if not isinstance(metadata, dict):
             raise TypeError("metadata must be a dictionary")
-        for key, value in metadata.items():
-            if not isinstance(key, (str, int, float, bool, None)):
-                raise TypeError("metadata keys unsupported type")
-            if not isinstance(value, (str, int, float, bool, None)):
-                raise TypeError("metadata values unsupported type")
+
+        # Check if the metadata can be serialized to JSON
+        try:
+            json.dumps(metadata)
+        except TypeError as e:
+            raise TypeError(f"Metadata contains values that cannot be serialized to JSON: {e}")
     
     def _create_complete_metadata(self):
         # create the complete metadata for the metadata file
