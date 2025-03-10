@@ -10,3 +10,5 @@ imutils/test_images/test_results/kymo6_cropped_16_7fps.avi
 /build/lib/*
 .idea/*
 imutils.egg-info/*
+.ipynb_checkpoints/*
+imutils/__pycache__/*
