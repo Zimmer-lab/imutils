@@ -12,6 +12,30 @@ Key features:
 5. Supports custom body part names and window sizes
 '''
 
+'''
+rule correct_head_tail_swaps:
+    input:
+        h5_file = "{datasets_output}track"+config["network_string"]+".h5"  
+    output:
+        corrected_csv = "{datasets_output}track"+config["network_string"]+"_corrected.csv",
+        hdf5_file = "{datasets_output}track"+config["network_string"]+"_corrected.h5"
+    params:
+        head = config['nose'], 
+        tail = config['tail'],
+        window = 20,
+    run:
+        from imutils.src import DLC_head_tail_swap_correction_argparse_v02 as head_tail_correction
+
+        head_tail_correction.main([
+            str(input.h5_file),
+            "--output_file_path", str(output.hdf5_file),  # Ensure the correct file is passed here
+            "--head", str(params.head),
+            "--tail", str(params.tail),
+            "--window", str(params.window),
+        ])
+
+'''
+
 import argparse
 import sys
 import pandas as pd
