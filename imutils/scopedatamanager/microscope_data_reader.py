@@ -515,7 +515,7 @@ class MicroscopeDataReader:
             key = f"{coordinates['position']},{coordinates['time']},{coordinates['channel']},{coordinates['z']}"
             metadata[key] = self._data_store.read_metadata(channel=coordinates['channel'], z=coordinates['z'], time=coordinates['time'], position=coordinates['position'])
         return metadata
-        
+    
     @property
     def dask_array(self):
         return self._dask_array

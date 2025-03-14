@@ -54,6 +54,8 @@ class MicroscopeDataWriter:
             self._check_metadata_format(summary_metadata)
             self._summary_metadata = basic_metadata | summary_metadata
         
+        self.all_metadata = self._summary_metadata.copy()
+
         # call the NDTiffDataset class constructor
         self._data_store = NDTiffDataset(dataset_path=dataset_path, name=dataset_name,
                                          summary_metadata=self._summary_metadata, writable=True, **kwargs)
@@ -91,20 +93,30 @@ class MicroscopeDataWriter:
     def _check_metadata_format(self, metadata: dict):
         # check if the metadata is in the correct format
         if not isinstance(metadata, dict):
+            self.logger.error(f"metadata has unsupported type {type(metadata)}, dict expected")
             raise TypeError("metadata must be a dictionary")
         for key, value in metadata.items():
+            self.logger.debug(f"Checking types, metadata key: {key} with value: {value}")
             if not isinstance(key, (str, int, float, bool, None)):
+                self.logger.error(f"metadata key {key}: {value} has unsupported type {type(key)}")
                 raise TypeError("metadata keys unsupported type")
             if not isinstance(value, (str, int, float, bool, None)):
+                self.logger.error(f"metadata value {key}: {value} has unsupported type {type(value)}")
                 raise TypeError("metadata values unsupported type")
     
     def _create_complete_metadata(self):
         # create the complete metadata for the metadata file
-        metadata = self._data_store._summary_metadata
+        metadata = self._data_store._summary_metadata.copy()
+        self.logger.info(f"Creating complete metadata")
         metadata['image_key'] = 'Str(position, time, channel, z)'
+        self.logger.info(f"Summary metadata: {metadata}")
         for coordinates in self._data_store.get_image_coordinates_list():
-            key = f"{coordinates['position']},{coordinates['time']},{coordinates['channel']},{coordinates['z']}"
-            metadata[key] = self._data_store.read_metadata(channel=coordinates['channel'], z=coordinates['z'], time=coordinates['time'], position=coordinates['position'])
+            try:
+                key = f"{coordinates['position']},{coordinates['time']},{coordinates['channel']},{coordinates['z']}"
+                metadata[key] = self._data_store.read_metadata(channel=coordinates['channel'], z=coordinates['z'], time=coordinates['time'], position=coordinates['position'])
+            except Exception as e:
+                self.logger.error(f"Error reading metadata for {coordinates}: {e}")
+                raise e
         return metadata
     
     def block_until_finished(self):
@@ -164,6 +176,8 @@ class MicroscopeDataWriter:
             image_metadata['TimeStamp_ms'] = timestamp
         
         self._data_store.put_image(image_coordinates, image, image_metadata)
+        key = f"{image_coordinates['position']},{image_coordinates['time']},{image_coordinates['channel']},{image_coordinates['z']}"
+        self.all_metadata[key] = image_metadata
     
     def read_image(self, position: int = 0, time: int = 0, channel: int = 0, z: int = 0):
         """
@@ -189,6 +203,12 @@ class MicroscopeDataWriter:
         """Return the summary metadata"""
         return self._summary_metadata
     
+    def initialize(self, summary_metadata: dict):
+        """Initialize the data store"""
+        self._check_metadata_format(summary_metadata)
+        self._data_store.initialize(summary_metadata=summary_metadata)
+        self.all_metadata = summary_metadata.copy()
+
     # Properties to access the ndstore properties and usefull other properties
     
     @property
